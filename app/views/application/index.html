@@ -14,7 +14,7 @@ var flightPaths = {}
 var flightdata = {}
 var airwindows = {}
 var planewindows = {}
-var overlay = {}
+var anterior = {};
 
 function angulo(lat1, lon1, lat2, lon2){
   return (Math.PI + Math.atan2((lon2-lon1), (lat2-lat1))) *  180 / Math.PI + 180;
@@ -56,7 +56,7 @@ function plane_icon(rot) {
 return {
    path: 'M 196.91 25.3815C 196.97 -8.6185 248.219 -8.6185 248.185 26.3395L 248.185 169.031L 447.949 289.095L 447.949 341.812L 249.144 276.382L 249.144 383.029L 295.152 418.973L 295.152 460.667L 224.225 438.621L 153.298 460.667L 153.298 418.973L 198.827 383.029L 198.827 276.382L 0 341.812L 0 289.095L 196.91 169.031L 196.91 25.3815z',
    fillColor: 'black',
-   fillOpacity: 0.8,
+   fillOpacity: 0.5,
    scale: 0.075,
    strokeColor: 'black',
    strokeWeight: 1,
@@ -91,10 +91,9 @@ function myMap() {
 
   socket.emit("AIRPORTS");
   socket.on("AIRPORTS", function(aero) {
-    console.log(aero)
     for (var a in aero){
       (function(air){
-      if (!(air in airports)){
+      //if (!(air in airports)){
         //console.log(airports);
         airports[air] = new google.maps.Marker({
     			position: (new google.maps.LatLng(aero[air].airport_position[0],
@@ -109,48 +108,15 @@ function myMap() {
         airports[air].addListener('mouseout', function() {
             airwindows[air].close();
           });
-        bound(map, airports)
-      }
+      //}
     })(a);
     }
-  });
-
-  socket.on("POSITION", function(f) {
-    if (!(f.code in planes)){
-
-			planes[f.code] = new google.maps.Marker({
-				position: (new google.maps.LatLng(f.position[0], f.position[1])),
-				icon: plane_icon(angulo(f.position[0], f.position[1],
-                flightdata[f.code].destination.airport_position[0], flightdata[f.code].destination.airport_position[1])),
-				map: map,
-        optimized: false
-			});
-      //planes[f.code].setIcon(plane_icon)
-      planewindows[f.code] = flight_window(f.code, flightdata[f.code].plane, flightdata[f.code].seats,
-                                    flightdata[f.code].airline, f.position[0], f.position[1]);
-			planes[f.code].addListener('mouseover', function() {
-			          planewindows[f.code].open(map, planes[f.code]);
-			        }); // aviones segun vuelo y sus posiciones
-      planes[f.code].addListener('mouseout', function() {
-          planewindows[f.code].close();
-        });
-      flightPaths[f.code].push({lat: f.position[0], lng: f.position[1]})
-      flights[f.code].setPath(flightPaths[f.code]);
-
-		} else {
-      //bound(map, planes)
-			planes[f.code].setPosition(new google.maps.LatLng(f.position[0], f.position[1]))
-      flightPaths[f.code].push({lat: f.position[0], lng: f.position[1]})
-      if (f.position[0] == flightdata[f.code].destination.airport_position[0] && f.position[1] == flightdata[f.code].destination.airport_position[1]){
-        flightPaths[f.code] = []
-      }
-      flights[f.code].setPath(flightPaths[f.code]);
-		}
+    bound(map, airports)
   });
 
   socket.emit("FLIGHTS");
   socket.on("FLIGHTS", function(vuelos){
-    console.log(vuelos)
+    var color = '#C8FE2E';
     vuelos.forEach( function(vuelo) {
       if (!(vuelo.code in airportPaths)){
         flightdata[vuelo.code] = vuelo;
@@ -167,18 +133,76 @@ function myMap() {
         							   });
         airportPaths[vuelo.code].setMap(map);
       }
-      if (!(vuelo.code in flightPaths)){
+      //if (!(vuelo.code in flightPaths)){
         flightPaths[vuelo.code] = [];
         flights[vuelo.code] = new google.maps.Polyline({
         								path: flightPaths[vuelo.code],
         								geodesic: true,
-        								strokeColor: '#C8FE2E',
-        								strokeOpacity: 0.9,
-        								strokeWeight: 8
+        								strokeColor: color,
+        								strokeOpacity: 1,
+        								strokeWeight: 5
         							});
+        flag = true;
+        color = '#A9F5BC';
         flights[vuelo.code].setMap(map);
-      }
+      //}
     });
+  });
+
+  socket.on("POSITION", function(f) {
+    if (!(f.code in planes)){
+      planes[f.code] = new google.maps.Marker({
+        position: (new google.maps.LatLng(f.position[0], f.position[1])),
+        icon: plane_icon(angulo(f.position[0], f.position[1],
+                flightdata[f.code].destination.airport_position[0], flightdata[f.code].destination.airport_position[1])),
+        map: map,
+        optimized: false
+      });
+      planewindows[f.code] = flight_window(f.code, flightdata[f.code].plane, flightdata[f.code].seats,
+                                    flightdata[f.code].airline, f.position[0], f.position[1]);
+      planes[f.code].addListener('mouseover', function() {
+                planewindows[f.code].open(map, planes[f.code]);
+              }); // aviones segun vuelo y sus posiciones
+      planes[f.code].addListener('mouseout', function() {
+          planewindows[f.code].close();
+        });
+      flightPaths[f.code].push({lat: f.position[0], lng: f.position[1]})
+      flights[f.code].setPath(flightPaths[f.code]);
+      anterior[f.code] = [f.position[0], f.position[1]]
+
+    } else {
+      planes[f.code].setPosition(new google.maps.LatLng(f.position[0], f.position[1]))
+      flightPaths[f.code].push({lat: f.position[0], lng: f.position[1]})
+      planes[f.code].setIcon(plane_icon(angulo(f.position[0], f.position[1],
+              flightdata[f.code].destination.airport_position[0], flightdata[f.code].destination.airport_position[1])))
+      flights[f.code].setPath(flightPaths[f.code]);
+      if (Math.abs(f.position[0] - anterior[f.code][0]) > 5 || Math.abs(f.position[1] - anterior[f.code][1]) > 5){
+
+        flights[f.code].setMap(null)
+        delete(flights[f.code])
+        airportPaths[f.code].setMap(null)
+        delete(airportPaths[f.code])
+
+        planes[f.code].setMap(null)
+        google.maps.event.clearInstanceListeners(planes[f.code])
+        delete(planewindows[f.code])
+        delete(planes[f.code])
+
+        airports[flightdata[f.code].destination.airport_code].setMap(null)
+        google.maps.event.clearInstanceListeners(airports[flightdata[f.code].destination.airport_code])
+        delete(airwindows[flightdata[f.code].destination.airport_code])
+        delete(airports[flightdata[f.code].destination.airport_code])
+
+        delete(flightPaths[f.code])
+        delete(flightdata[f.code])
+
+        delete(airportPaths[f.code])
+
+        socket.emit("FLIGHTS");
+        socket.emit("AIRPORTS");
+      }
+
+    }
   });
 
 }
